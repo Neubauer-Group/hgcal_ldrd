@@ -6,8 +6,9 @@ entry_points:
   main:
     parameters:
       data_file: path
+      output_base_dir: path
       regularization: {type: float, default: 0.1}
-    command: "python scripts/make_graphs.py -r {regularization} {data_file}"
+    command: "PYTHONPATH=src:$PYTHONPATH python scripts/preprocess.py {data_file} {output_base_dir}"
   validate:
     parameters:
       data_file: path

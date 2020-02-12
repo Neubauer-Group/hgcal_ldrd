@@ -5,9 +5,9 @@ channels:
   - defaults
 dependencies:
   - python=3.6   # or 2.7
-  - pytorch=1.4.0
-  - torchvision=0.5.0
-  - cudatoolkit=9.0
+  - pytorch=1.2.0=py3.6_cuda10.0.130_cudnn7.6.2_0
+  - torchvision=0.4.0=py36_cu100
+  - cudatoolkit=10.0.130=0
   - pandas=0.25
   - matplotlib=3.1
   - jupyter

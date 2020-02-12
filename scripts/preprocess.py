@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import sys
+
 import uproot
 import awkward
 import numpy as np
@@ -22,7 +24,8 @@ preprocessing_args= dict(k=4)
 #preprocessing_args= dict(r = 0.07) #if algo == 'kdtree'
 layer_norm = 150 #only used for etaphi, no effect for other preprocessors
 
-fname = '../data/ntup/partGun_PDGid15_x1000_Pt3.0To100.0_NTUP_1.root'
+fname = sys.argv[1]
+output_base_dir = sys.argv[2]
 
 test = uproot.open(fname)['ana']['hgc']
 
@@ -53,7 +56,8 @@ for ievt in tqdm(range(NEvents),desc='events processed'):
     
     #write the graph and truth graph out
     outbase = fname.split('/')[-1].replace('.root','')
-    outdir = "/".join(fname.split('/')[:-2]) + "/npz/" + outbase + "/raw"
+    outdir = output_base_dir + "/npz/" + outbase + "/raw"
+
     if not os.path.exists( outdir):
         os.makedirs(outdir)
 
