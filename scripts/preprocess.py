@@ -12,6 +12,7 @@ from tqdm import tqdm
 from datasets.graph import graph_to_sparse, save_graph
 
 from preprocessing import *
+import mlflow
 
 
 # for PointNet
@@ -29,43 +30,46 @@ output_base_dir = sys.argv[2]
 
 test = uproot.open(fname)['ana']['hgc']
 
-#example of generating a binary ground-truth adjacency matrix 
-#for both endcaps in all events for all clusters
-#truth is now that hits in adjacent layers are connected 
-#and so are hits in the same layer within delta-R < 2 
-arrays = test.arrays([b'simcluster_hits_indices'])
-rechit = test.arrays([b'rechit_x',b'rechit_y', b'rechit_z', b'rechit_eta', b'rechit_phi',
-                      b'rechit_layer',b'rechit_time',b'rechit_energy'])
-NEvents = rechit[b'rechit_z'].shape[0]
-rechit[b'rechit_x'].content[rechit[b'rechit_z'].content < 0] *= -1
-sim_indices = awkward.fromiter(arrays[b'simcluster_hits_indices'])
-valid_sim_indices = sim_indices[sim_indices > -1]
+with mlflow.start_run():
+
+    #example of generating a binary ground-truth adjacency matrix
+    #for both endcaps in all events for all clusters
+    #truth is now that hits in adjacent layers are connected
+    #and so are hits in the same layer within delta-R < 2
+    arrays = test.arrays([b'simcluster_hits_indices'])
+    rechit = test.arrays([b'rechit_x',b'rechit_y', b'rechit_z', b'rechit_eta', b'rechit_phi',
+                          b'rechit_layer',b'rechit_time',b'rechit_energy'])
+    NEvents = rechit[b'rechit_z'].shape[0]
+    rechit[b'rechit_x'].content[rechit[b'rechit_z'].content < 0] *= -1
+    sim_indices = awkward.fromiter(arrays[b'simcluster_hits_indices'])
+    valid_sim_indices = sim_indices[sim_indices > -1]
 
 
-for ievt in tqdm(range(NEvents),desc='events processed'):
-    #make input graphs
-    
-    # for EdgeNet
-    pos_graph = preprocessing_algo(rechit, valid_sim_indices, ievt = ievt, mask = rechit[b'rechit_z'][ievt] > 0,
-                                   layered_norm = layer_norm, algo=grouping_algo, preprocessing_args=preprocessing_args)
-    neg_graph = preprocessing_algo(rechit, valid_sim_indices, ievt = ievt, mask = rechit[b'rechit_z'][ievt] < 0,
-                                   layered_norm = layer_norm, algo=grouping_algo, preprocessing_args=preprocessing_args)
-    # for PointNet
-    #pos_graph = preprocessing_algo(rechit, valid_sim_indices, ievt = ievt, mask = rechit[b'rechit_z'][ievt] > 0)
-    #neg_graph = preprocessing_algo(rechit, valid_sim_indices, ievt = ievt, mask = rechit[b'rechit_z'][ievt] < 0)
-    
-    #write the graph and truth graph out
-    outbase = fname.split('/')[-1].replace('.root','')
-    outdir = output_base_dir + "/npz/" + outbase + "/raw"
+    for ievt in tqdm(range(NEvents),desc='events processed'):
+        #make input graphs
 
-    if not os.path.exists( outdir):
-        os.makedirs(outdir)
+        # for EdgeNet
+        pos_graph = preprocessing_algo(rechit, valid_sim_indices, ievt = ievt, mask = rechit[b'rechit_z'][ievt] > 0,
+                                       layered_norm = layer_norm, algo=grouping_algo, preprocessing_args=preprocessing_args)
+        neg_graph = preprocessing_algo(rechit, valid_sim_indices, ievt = ievt, mask = rechit[b'rechit_z'][ievt] < 0,
+                                       layered_norm = layer_norm, algo=grouping_algo, preprocessing_args=preprocessing_args)
+        # for PointNet
+        #pos_graph = preprocessing_algo(rechit, valid_sim_indices, ievt = ievt, mask = rechit[b'rechit_z'][ievt] > 0)
+        #neg_graph = preprocessing_algo(rechit, valid_sim_indices, ievt = ievt, mask = rechit[b'rechit_z'][ievt] < 0)
 
-    # for EdgeNet
-    save_graph(pos_graph, '%s/%s_hgcal_graph_pos_evt%d.npz'%(outdir,outbase,ievt))
-    save_graph(neg_graph, '%s/%s_hgcal_graph_neg_evt%d.npz'%(outdir,outbase,ievt))
-    #saved as sparse
-    
-    # for PointNet
-    #save_graph(pos_graph, '%s/%s_hgcal_graph_pos_evt%d.npz'%(outdir,outbase,ievt))
-    #save_graph(neg_graph, '%s/%s_hgcal_graph_neg_evt%d.npz'%(outdir,outbase,ievt))
+        #write the graph and truth graph out
+        outbase = fname.split('/')[-1].replace('.root','')
+        outdir = output_base_dir + "/npz/" + outbase + "/raw"
+
+        if not os.path.exists( outdir):
+            os.makedirs(outdir)
+
+        # for EdgeNet
+        save_graph(pos_graph, '%s/%s_hgcal_graph_pos_evt%d.npz'%(outdir,outbase,ievt))
+        save_graph(neg_graph, '%s/%s_hgcal_graph_neg_evt%d.npz'%(outdir,outbase,ievt))
+        #saved as sparse
+
+        # for PointNet
+        #save_graph(pos_graph, '%s/%s_hgcal_graph_pos_evt%d.npz'%(outdir,outbase,ievt))
+        #save_graph(neg_graph, '%s/%s_hgcal_graph_neg_evt%d.npz'%(outdir,outbase,ievt))
+        mlflow.mlflow.log_artifacts(outdir)
