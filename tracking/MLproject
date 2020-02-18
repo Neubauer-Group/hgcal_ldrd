@@ -1,0 +1,28 @@
+name: TrackML GNN
+
+conda_env: environment.yaml
+
+entry_points:
+  prepare:
+    parameters:
+        input_dir: path
+        output_dir: path
+        n_files: {type: int, default: 500}
+        pt_min: {type: float, default: 0.5}
+        phi_slope_max: {type: float, default: 0.0006}
+        z0_max: {type: int, default: 150}
+        n_phi_sections: {type: int, default: 4}
+        n_eta_sections: {type: int, default: 2}
+        eta_range: {type: string, default: "-5, 5"}
+
+    command: "python prepare.py \
+                --input-dir {input_dir} \
+                --output-dir {output_dir} \
+                --num-files {n_files} \
+                --pt-min {pt_min} \
+                --phi-slope_max {phi_slope_max} \
+                --z0-max {z0_max} \
+                --n-phi-sections {n_phi_sections} \
+                --n-eta-sections {n_eta_sections} \
+                --eta-range {eta_range}
+                "
