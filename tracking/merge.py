@@ -78,12 +78,18 @@ with mlflow.start_run() as run:
         else:
             count = count + 1
 
-    print('Ri_cols  max:'+str(max(Ri_cols_max))+' min:'+str(min(Ri_cols_min)))
-    print('Ri_rows  max:'+str(max(Ri_rows_max))+' min:'+str(min(Ri_rows_min)))
-    print('Ro_cols  max:'+str(max(Ro_cols_max))+' min:'+str(min(Ro_cols_min)))
-    print('Ro_rows  max:'+str(max(Ro_rows_max))+' min:'+str(min(Ro_rows_min)))
-    print('X  max:'+str(max(X_max))+' min:'+str(min(X_min)))
-    print('y  max:'+str(max(y_max))+' min:'+str(min(y_min)))
+    mlflow.log_metric('Ri_cols  max', max(Ri_cols_max))
+    mlflow.log_metric('Ri_cols min', min(Ri_cols_min))
+    mlflow.log_metric('Ri_rows  max:', max(Ri_rows_max))
+    mlflow.log_metric('Ri_rows min:', min(Ri_rows_min))
+    mlflow.log_metric('Ro_cols  max:', max(Ro_cols_max))
+    mlflow.log_metric('Ro_cols min:', min(Ro_cols_min))
+    mlflow.log_metric('Ro_rows  max:', max(Ro_rows_max))
+    mlflow.log_metric('Ro_rows min:', min(Ro_rows_min))
+    mlflow.log_metric('X  max:', max(X_max))
+    mlflow.log_metric('X min', min(X_min))
+    mlflow.log_metric('y  max:', max(y_max))
+    mlflow.log_metric('y min:', min(y_min))
 
 
 
