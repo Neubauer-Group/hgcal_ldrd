@@ -19,6 +19,7 @@ import trackml.dataset
 
 # Locals
 from datasets.graph import Graph, save_graphs
+import mlflow
 
 
 def parse_args():
@@ -37,7 +38,7 @@ def parse_args():
     add_arg('--eta-range', dest='eta_range', action='store')
 
     add_arg('config', nargs='?', default='configs/prepare_trackml.yaml')
-    add_arg('--n-workers', type=int, default=1)
+    add_arg('--n-workers', dest='n_workers', type=int, default=1)
     add_arg('--task', type=int, default=0)
     add_arg('--n-tasks', type=int, default=1)
     add_arg('-v', '--verbose', action='store_true')
@@ -237,39 +238,42 @@ def main():
     if args.show_config:
         logging.info('Command line config: %s' % args)
 
-    eta_range = [int(v) for v in args.eta_range.split(',')]
-    print("eta range ", eta_range)
-    # Construct layer pairs from adjacent layer numbers
-    layers = np.arange(10)
-    layer_pairs = np.stack([layers[:-1], layers[1:]], axis=1)
+    with mlflow.start_run():
+        eta_range = [int(v) for v in args.eta_range.split(',')]
+        mlflow.log_param("eta_range", eta_range)
+        print("eta range ", eta_range)
+        # Construct layer pairs from adjacent layer numbers
+        layers = np.arange(10)
+        layer_pairs = np.stack([layers[:-1], layers[1:]], axis=1)
 
-    # Find the input files
-    input_dir = args.input_dir
-    all_files = os.listdir(input_dir)
-    suffix = '-hits.csv'
-    file_prefixes = sorted(os.path.join(input_dir, f.replace(suffix, ''))
-                           for f in all_files if f.endswith(suffix))
-    file_prefixes = file_prefixes[:args.num_files]
+        # Find the input files
+        input_dir = args.input_dir
+        all_files = os.listdir(input_dir)
+        suffix = '-hits.csv'
+        file_prefixes = sorted(os.path.join(input_dir, f.replace(suffix, ''))
+                               for f in all_files if f.endswith(suffix))
+        file_prefixes = file_prefixes[:args.num_files]
 
-    # Split the input files by number of tasks and select my chunk only
-    file_prefixes = np.array_split(file_prefixes, args.n_tasks)[args.task]
+        # Split the input files by number of tasks and select my chunk only
+        file_prefixes = np.array_split(file_prefixes, args.n_tasks)[args.task]
 
-    # Prepare output
-    output_dir = os.path.expandvars(args.output_dir)
-    os.makedirs(output_dir, exist_ok=True)
-    logging.info('Writing outputs to ' + output_dir)
+        # Prepare output
+        output_dir = os.path.expandvars(args.output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+        logging.info('Writing outputs to ' + output_dir)
+        mlflow.mlflow.log_artifacts(output_dir)
 
-    # Process input files with a worker pool
-    with mp.Pool(processes=args.n_workers) as pool:
-        process_func = partial(process_event, output_dir=output_dir,
-                               phi_range=(-np.pi, np.pi),
-                               pt_min=args.pt_min,
-                               phi_slope_max=args.phi_slope,
-                               z0_max=args.z0_max,
-                               n_phi_sections=args.n_phi_sections,
-                               n_eta_sections=args.n_eta_sections,
-                               eta_range=eta_range)
-        pool.map(process_func, file_prefixes)
+        # Process input files with a worker pool
+        with mp.Pool(processes=args.n_workers) as pool:
+            process_func = partial(process_event, output_dir=output_dir,
+                                   phi_range=(-np.pi, np.pi),
+                                   pt_min=args.pt_min,
+                                   phi_slope_max=args.phi_slope,
+                                   z0_max=args.z0_max,
+                                   n_phi_sections=args.n_phi_sections,
+                                   n_eta_sections=args.n_eta_sections,
+                                   eta_range=eta_range)
+            pool.map(process_func, file_prefixes)
 
     # Drop to IPython interactive shell
     if args.interactive:
