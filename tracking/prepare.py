@@ -9,6 +9,8 @@ import os
 import argparse
 import logging
 import multiprocessing as mp
+import glob
+import itertools
 from functools import partial
 
 # Externals
@@ -180,7 +182,7 @@ def split_detector_sections(hits, phi_edges, eta_edges):
     return hits_sections
 
 def process_event(prefix, output_dir, pt_min, n_eta_sections, n_phi_sections,
-                  eta_range, phi_range, phi_slope_max, z0_max, mlflow=None):
+                  eta_range, phi_range, phi_slope_max, z0_max, mlflow=None, mlflow_run_id=None):
     # Load the data
     evtid = int(prefix[-9:])
     logging.info('Event %i, loading data' % evtid)
@@ -220,8 +222,9 @@ def process_event(prefix, output_dir, pt_min, n_eta_sections, n_phi_sections,
         filenames = [os.path.join(output_dir, '%s_g%03i' % (base_prefix, i))
                      for i in range(len(graphs))]
 
-        for f in filenames:
-            mlflow.log_artifact(f)
+        # Expand the generated graphfiles and add them as artifacts from this run
+        for f in list(itertools.chain.from_iterable([glob.glob(f+"*") for f in filenames])):
+            mlflow.log_artifact(mlflow_run_id, f)
 
     except Exception as e:
         logging.info(e)
@@ -242,7 +245,7 @@ def main():
     if args.show_config:
         logging.info('Command line config: %s' % args)
 
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         eta_range = [int(v) for v in args.eta_range.split(',')]
         mlflow.log_param("eta_range", eta_range)
         print("eta range ", eta_range)
@@ -265,7 +268,7 @@ def main():
         output_dir = os.path.expandvars(args.output_dir)
         os.makedirs(output_dir, exist_ok=True)
         logging.info('Writing outputs to ' + output_dir)
-        mlflow.mlflow.log_artifacts(output_dir)
+        mlflow_client = mlflow.tracking.MlflowClient()
 
         # Process input files with a worker pool
         with mp.Pool(processes=args.n_workers) as pool:
@@ -277,7 +280,8 @@ def main():
                                    n_phi_sections=args.n_phi_sections,
                                    n_eta_sections=args.n_eta_sections,
                                    eta_range=eta_range,
-                                   mlflow=mlflow)
+                                   mlflow=mlflow_client,
+                                   mlflow_run_id=run.info.run_id)
             pool.map(process_func, file_prefixes)
 
     # Drop to IPython interactive shell
