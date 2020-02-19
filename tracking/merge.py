@@ -24,10 +24,10 @@ input_dir = sys.argv[1]
 merged_output_dir = sys.argv[2]
 
 with mlflow.start_run() as run:
-    unmerged_files = glob.glob(os.path.join(input_dir, "*"))
-
-    for event_root in set([xx.split("_")[0] for xx in unmerged_files]):
-
+    unmerged_files = glob.glob(os.path.join(input_dir, "event*_*.npz"))
+    os.path.basename(unmerged_files[0])
+    for event_root in set([os.path.join(os.path.dirname(xx), os.path.basename(xx).split("_")[0]) for xx in unmerged_files]):
+        print(event_root)
         input_root = os.path.join(input_dir, event_root)
         a = numpy.load(input_root + '_g000.npz')
         b = numpy.load(input_root + '_g001.npz')
