@@ -1,3 +1,4 @@
+import glob
 import sys
 
 import numpy
@@ -23,19 +24,19 @@ input_dir = sys.argv[1]
 merged_output_dir = sys.argv[2]
 
 with mlflow.start_run() as run:
-    while count < 10000:
+    unmerged_files = glob.glob(os.path.join(input_dir, "*"))
 
-        if count % 500 == 0:
-            print('Merging Event: '+str(count))
+    for event_root in set([xx.split("_")[0] for xx in unmerged_files]):
 
-        a = numpy.load(os.path.join(input_dir, 'event00000'+str(count)+'_g000.npz'))
-        b = numpy.load(os.path.join(input_dir, 'event00000'+str(count)+'_g001.npz'))
-        c = numpy.load(os.path.join(input_dir, 'event00000'+str(count)+'_g002.npz'))
-        d = numpy.load(os.path.join(input_dir, 'event00000'+str(count)+'_g003.npz'))
-        e = numpy.load(os.path.join(input_dir, 'event00000'+str(count)+'_g004.npz'))
-        f = numpy.load(os.path.join(input_dir, 'event00000'+str(count)+'_g005.npz'))
-        g = numpy.load(os.path.join(input_dir, 'event00000'+str(count)+'_g006.npz'))
-        h = numpy.load(os.path.join(input_dir, 'event00000'+str(count)+'_g007.npz'))
+        input_root = os.path.join(input_dir, event_root)
+        a = numpy.load(input_root + '_g000.npz')
+        b = numpy.load(input_root + '_g001.npz')
+        c = numpy.load(input_root + '_g002.npz')
+        d = numpy.load(input_root + '_g003.npz')
+        e = numpy.load(input_root + '_g004.npz')
+        f = numpy.load(input_root + '_g005.npz')
+        g = numpy.load(input_root + '_g006.npz')
+        h = numpy.load(input_root + '_g007.npz')
 
         Ri_cols = [*a['Ri_cols'],*b['Ri_cols'],*c['Ri_cols'],*d['Ri_cols'],*e['Ri_cols'],*f['Ri_cols'],*g['Ri_cols'],*h['Ri_cols']]
         Ri_rows = [*a['Ri_rows'],*b['Ri_rows'],*c['Ri_rows'],*d['Ri_rows'],*e['Ri_rows'],*f['Ri_rows'],*g['Ri_rows'],*h['Ri_rows']]
@@ -64,7 +65,7 @@ with mlflow.start_run() as run:
         y_max.append(max(y))
         y_min.append(min(y))
 
-        numpy.savez(os.path.join(merged_output_dir, 'event00000' + str(count) + '.npz'),
+        numpy.savez(os.path.join(merged_output_dir, event_root + '.npz'),
                     Ri_cols=Ri_cols, Ri_rows=Ri_rows, Ro_cols=Ro_cols,
                     Ro_rows=Ro_rows, X=X, y=y)
 
