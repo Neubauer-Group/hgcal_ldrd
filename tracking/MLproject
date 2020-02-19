@@ -5,7 +5,7 @@ conda_env: environment.yaml
 entry_points:
   prepare:
     parameters:
-        input_dir: path
+        input_dir: {type: path, default: /data/gnn_code/trackml-particle-identification/train_all}
         output_dir: path
         n_files: {type: int, default: 500}
         pt_min: {type: float, default: 0.5}
