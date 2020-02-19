@@ -180,7 +180,7 @@ def split_detector_sections(hits, phi_edges, eta_edges):
     return hits_sections
 
 def process_event(prefix, output_dir, pt_min, n_eta_sections, n_phi_sections,
-                  eta_range, phi_range, phi_slope_max, z0_max):
+                  eta_range, phi_range, phi_slope_max, z0_max, mlflow=None):
     # Load the data
     evtid = int(prefix[-9:])
     logging.info('Event %i, loading data' % evtid)
@@ -219,6 +219,10 @@ def process_event(prefix, output_dir, pt_min, n_eta_sections, n_phi_sections,
         base_prefix = os.path.basename(prefix)
         filenames = [os.path.join(output_dir, '%s_g%03i' % (base_prefix, i))
                      for i in range(len(graphs))]
+
+        for f in filenames:
+            mlflow.log_artifact(f)
+
     except Exception as e:
         logging.info(e)
     logging.info('Event %i, writing graphs', evtid)
@@ -272,7 +276,8 @@ def main():
                                    z0_max=args.z0_max,
                                    n_phi_sections=args.n_phi_sections,
                                    n_eta_sections=args.n_eta_sections,
-                                   eta_range=eta_range)
+                                   eta_range=eta_range,
+                                   mlflow=mlflow)
             pool.map(process_func, file_prefixes)
 
     # Drop to IPython interactive shell
