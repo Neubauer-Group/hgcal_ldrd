@@ -32,3 +32,10 @@ entry_points:
                 --n-eta-sections {n_eta_sections} \
                 --eta-range {eta_range}
                 "
+
+  merge:
+    parameters:
+        input_dir: path
+        merged_output_dir: path
+    command: "python merge.py {input_dir} {merged_output_dir}
+
