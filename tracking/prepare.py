@@ -27,7 +27,7 @@ def parse_args():
     add_arg = parser.add_argument
     add_arg('--input-dir', required=True, dest='input_dir', action='store')
     add_arg('--output-dir', required=True, dest='output_dir', action='store')
-    add_arg('--num-files', required=True, dest='num_files', action='store')
+    add_arg('--num-files', type=int, required=True, dest='num_files', action='store')
 
     add_arg('--pt-min', type=float, dest='pt_min', action='store')
     add_arg('--phi-slope_max', type=float, dest='phi_slope', action='store')
@@ -237,6 +237,8 @@ def main():
     if args.show_config:
         logging.info('Command line config: %s' % args)
 
+    eta_range = [int(v) for v in args.eta_range.split(',')]
+    print("eta range ", eta_range)
     # Construct layer pairs from adjacent layer numbers
     layers = np.arange(10)
     layer_pairs = np.stack([layers[:-1], layers[1:]], axis=1)
@@ -266,7 +268,7 @@ def main():
                                z0_max=args.z0_max,
                                n_phi_sections=args.n_phi_sections,
                                n_eta_sections=args.n_eta_sections,
-                               eta_range=','.split(args.eta_range))
+                               eta_range=eta_range)
         pool.map(process_func, file_prefixes)
 
     # Drop to IPython interactive shell
