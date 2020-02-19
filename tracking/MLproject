@@ -37,5 +37,5 @@ entry_points:
     parameters:
         input_dir: path
         merged_output_dir: path
-    command: "python merge.py {input_dir} {merged_output_dir}
+    command: "python merge.py {input_dir} {merged_output_dir}"
 
