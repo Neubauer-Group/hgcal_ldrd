@@ -18,7 +18,7 @@ entry_points:
         n_eta_sections: {type: int, default: 1}
         eta_range: {type: string, default: "-5, 5"}
 
-    command: "python prepare.py \
+    command: "PYTHONPATH=$(pwd):$PYTHONPATH python scripts/prepare.py \
                 --n-workers {n_workers} \
                 --input-dir {input_dir} \
                 --output-dir {output_dir} \
