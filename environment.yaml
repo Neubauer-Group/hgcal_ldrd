@@ -19,3 +19,4 @@ dependencies:
   - scikit-learn
   - pip:
     - mlflow
+    - git+https://github.com/LAL/trackml-library
