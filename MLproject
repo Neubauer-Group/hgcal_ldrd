@@ -47,6 +47,6 @@ entry_points:
     command: "GNN_TRAINING_DATA_ROOT={stage_dir} \
               PYTHONPATH=$(pwd)/src:$PYTHONPATH python scripts/heptrx_nnconv.py \
               -c -m=EdgeNetWithCategories -l=nll_loss -d=test_track --forcecats \
-              --cats=2 --hidden_dim=64 -output-dir={output_dir} --lr 1e-4 -o AdamW 
+              --cats=2 --hidden_dim=64 --output-dir={output_dir} --lr 1e-4 -o AdamW 
               "
 
