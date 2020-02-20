@@ -12,7 +12,8 @@ import tqdm
 
 # A Graph is a namedtuple of matrices (X, Ri, Ro, y)
 
-Graph = namedtuple('Graph', ['X', 'Ri', 'Ro', 'y', 'simmatched'])
+#Graph = namedtuple('Graph', ['X', 'Ri', 'Ro', 'y', 'simmatched'])
+Graph = namedtuple('Graph', ['X', 'Ri', 'Ro', 'y'])
 
 
 
@@ -22,11 +23,12 @@ def graph_to_sparse(graph):
         
     return dict(X=graph.X, y=graph.y,
                 Ri_rows=Ri_rows, Ri_cols=Ri_cols,
-                Ro_rows=Ro_rows, Ro_cols=Ro_cols,
-                simmatched=graph.simmatched
+                Ro_rows=Ro_rows, Ro_cols=Ro_cols
+#                simmatched=graph.simmatched
                )
 
-def sparse_to_graph(X, Ri_rows, Ri_cols, Ro_rows, Ro_cols, y, simmatched, dtype=np.float32):
+#def sparse_to_graph(X, Ri_rows, Ri_cols, Ro_rows, Ro_cols, y, simmatched, dtype=np.float32):
+def sparse_to_graph(X, Ri_rows, Ri_cols, Ro_rows, Ro_cols, y, dtype=np.float32):
     n_nodes, n_edges = X.shape[0], Ri_rows.shape[0]
     spRi_idxs = np.stack([Ri_rows.astype(np.int64), Ri_cols.astype(np.int64)])
     # Ri_rows and Ri_cols have the same shape
@@ -41,7 +43,9 @@ def sparse_to_graph(X, Ri_rows, Ri_cols, Ro_rows, Ro_cols, y, simmatched, dtype=
     if y.dtype != np.uint8:
         y = y.astype(np.uint8)
 
-    return Graph(X, spRi, spRo, y, simmatched)
+#    return Graph(X, spRi, spRo, y, simmatched)
+    return Graph(X, spRi, spRo, y)
+
 
 
 def save_graph(graph, filename):
