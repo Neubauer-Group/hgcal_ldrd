@@ -67,9 +67,10 @@ def main(args):
 
 
     #the_weights = np.array([1., 1., 1., 1.]) #[0.017, 1., 1., 10.]
+    #todo: Must match number of categories
     the_weights = np.array([1., 1.])
     trainer = GNNTrainer(category_weights = the_weights,
-                         output_dir='/data/gnn_code/hgcal_ldrd/output', device=device)
+                         output_dir=args.output_dir, device=device)
 
     trainer.logger.setLevel(logging.DEBUG)
     strmH = logging.StreamHandler()
@@ -110,6 +111,7 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim', default=64, type=int, help='Latent space size.')
     parser.add_argument('--n_iters', default=6, type=int, help='Number of times to iterate the graph.')
     parser.add_argument('--dataset', '-d', default='single_photon')
+    parser.add_argument('--output-dir', default='/data/gnn_code/hgcal_ldrd/output')
 
     args = parser.parse_args()
     main(args)
