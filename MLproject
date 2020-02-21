@@ -58,4 +58,10 @@ entry_points:
               --tv-fraction={tv_fraction} \
               --cats=2 --hidden_dim=64 --output-dir={output_dir} --lr 1e-4 -o AdamW 
               "
+  plot:
+    parameters:
+        model: path
+    command: "PYTHONPATH=$(pwd)/src:$PYTHONPATH python scripts/draw_graphs.py \
+            --model={model}
+            "
 
