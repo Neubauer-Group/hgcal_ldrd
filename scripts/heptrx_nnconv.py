@@ -23,9 +23,6 @@ import argparse
 directed = False
 sig_weight = 1.0
 bkg_weight = 1.0
-train_batch_size = 1
-valid_batch_size = 1
-n_epochs = 50 # Todo Make this a parameter
 lr = 0.01
 hidden_dim = 64
 n_iters = 6
@@ -41,9 +38,15 @@ def main(args):
 
     path = osp.join(os.environ['GNN_TRAINING_DATA_ROOT'], args.dataset)
     print(path)
+
+
+    train_batch_size = args.train_batch_size
+    valid_batch_size = args.validate_batch_size
+    n_epochs = args.num_epochs
+
     full_dataset = HitGraphDataset(path, directed=directed, categorical=args.categorized)
     fulllen = len(full_dataset)
-    tv_frac = 0.20
+    tv_frac = args.tv_fraction
     tv_num = math.ceil(fulllen*tv_frac)
     splits = np.cumsum([fulllen-tv_num,0,tv_num])
     print(fulllen, splits)
@@ -116,6 +119,10 @@ if __name__ == "__main__":
     parser.add_argument('--n_iters', default=6, type=int, help='Number of times to iterate the graph.')
     parser.add_argument('--dataset', '-d', default='single_photon')
     parser.add_argument('--output-dir', default='/data/gnn_code/hgcal_ldrd/output')
+    parser.add_argument('--num-epochs', type=int, default=50)
+    parser.add_argument('--train-batch-size', type=int, default=1)
+    parser.add_argument('--validate-batch-size', type=int, default=1)
+    parser.add_argument('--tv-fraction', type=float, default=0.20)
 
     args = parser.parse_args()
     main(args)

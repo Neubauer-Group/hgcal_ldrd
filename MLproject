@@ -44,9 +44,18 @@ entry_points:
     parameters:
         stage_dir: path
         output_dir: path
+        num_epochs: {type: int, default: 50}
+        train_batch_size: {type: int, default: 1}
+        validate_batch_size: {type: int, default: 1}
+        tv_fraction: {type: double, default: 0.20}
+
     command: "GNN_TRAINING_DATA_ROOT={stage_dir} \
               PYTHONPATH=$(pwd)/src:$PYTHONPATH python scripts/heptrx_nnconv.py \
               -c -m=EdgeNetWithCategories -l=nll_loss -d=test_track --forcecats \
+              --num-epochs={num_epochs} \
+              --train-batch-size={train_batch_size} \
+              --validate-batch-size={validate_batch_size} \
+              --tv-fraction={tv_fraction} \
               --cats=2 --hidden_dim=64 --output-dir={output_dir} --lr 1e-4 -o AdamW 
               "
 
