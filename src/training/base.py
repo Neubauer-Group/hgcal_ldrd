@@ -99,7 +99,7 @@ class base(object):
             # Evaluate on this epoch
             sum_valid = None
             if valid_data_loader is not None:
-                sum_valid = self.evaluate(valid_data_loader)
+                sum_valid = self.evaluate(valid_data_loader, epoch=i)
                 summary.update(sum_valid)
                 
                 if sum_valid['valid_loss'] < best_valid_loss:
