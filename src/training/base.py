@@ -70,8 +70,10 @@ class base(object):
         else:
             checkpoint_file = 'model_checkpoint_%s_%03i.pth.tar' % ( fname, checkpoint_id )
         os.makedirs(checkpoint_dir, exist_ok=True)
-        torch.save(dict(model=self.model.state_dict()),
-                   os.path.join(checkpoint_dir, checkpoint_file))
+
+        save_path = os.path.join(checkpoint_dir, checkpoint_file)
+        torch.save(dict(model=self.model.state_dict()),  save_path)
+        self.mlflow.log_artifact(self.run_id, save_path)
 
     def build_model(self):
         """Virtual method to construct the model(s)"""
