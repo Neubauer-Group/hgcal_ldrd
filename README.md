@@ -1,19 +1,17 @@
-# hgcal_ldrd
-Code repository for HGCal LDRD
+# TrackML with Graph Neural Net
+This workflow uses [MLFlow](https://www.mlflow.org) to control the operation.
 
-You will need to:
+## To Prepare
 ```
-conda create --name hgcal-env python=3.6
-conda activate hgcal-env
-conda install pytorch torchvision cudatoolkit=9.0 -c pytorch
-conda install pandas matplotlib jupyter nbconvert==5.4.1
-conda install -c conda-forge tqdm
-pip install uproot scipy sklearn --user
-pip install torch-scatter torch-sparse
-pip install networkx
+mlflow run -e prepare -P output_dir=output -P n_workers=5 -P n_files=4 -P n-eta-sections=1 -P n-phi-sections=1 .
 ```
-(or replace pip with the corresponding conda installation for safer compatibility)
 
-and install pytorch geometric according to the instructions here:
-https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html
+## To Stage
+```
+mlflow run -e stage -P input_dir=output -P stage_dir=xxx -Psector=g001 .
+```
 
+## To Train
+```
+mlflow run -e train -P stage_dir=xxx -P output_dir=xxx .
+```
