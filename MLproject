@@ -61,10 +61,9 @@ entry_points:
   plot:
     parameters:
         stage_dir: path
-        model: str
         test_data: str
     command: "GNN_TRAINING_DATA_ROOT={stage_dir} \
               PYTHONPATH=$(pwd)/src:$PYTHONPATH python scripts/draw_graphs.py \
-              --model={model} --test-data={test_data}
+              --test-data={test_data}
             "
 
