@@ -1,0 +1,37 @@
+# Input/output configuration
+input_dir: /data/gnn_code/trackml-particle-identification/train_all
+output_dir: /data/gnn_code/heptrkx-gnn-tracking/output
+n_files: 8850
+
+# Graph building configuration
+selection:
+    pt_min: 0.5 # GeV
+    #pt_min: 2.0 # GeV
+
+    phi_slope_max: 0.0006
+    #phi_slope_max: 0.00025
+    #phi_slope_max: 0.00075
+
+    z0_max: 150
+    n_phi_sections: 1
+    n_eta_sections: 1
+    eta_range: [-5, 5]
+    dr_max: 65
+
+    # TrackML Geometry
+    volume_layer_ids: [[8,2], [8,4], [8,6], [8,8]]                             #barrel
+                       # [9,2], [9,4], [9,6], [9,8], [9,10], [9,12], [9,14],     #front endcap
+                       # [7,2], [7,4], [7,6], [7,8], [7,10], [7,12], [7,14]]     #back endcap
+
+    layer_pairs : [[0, 1], [1, 2], [2, 3]]                                     #barrel
+                   # [0, 4], [1, 4], [2, 4], [3, 4],                             #barrel to front endcap
+                   # [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10],            #front endcap
+                   # [0, 17], [1, 17], [2, 17], [3, 17],                         #barrel to back endcap
+                   # [17, 16], [16, 15], [15, 14], [14, 13], [13, 12], [12, 11]] #back endcap
+
+    # ATLAS Geometry
+    # volume_layer_ids: [[80,0], [81,0], [82,0], [83,0], [84,0],                 #Inner Barrel
+    #                    [13,0], [13,1], [13,2], [13,3]]                         #Outer Barrel
+    #
+    # layer_pairs : [[0, 1], [1, 2], [2, 3], [3, 4],                             #Inner Barrel
+    #                [4, 5], [5, 6], [6, 7], [7, 8]]                             #Outer Barrel

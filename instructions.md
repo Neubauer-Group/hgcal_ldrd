@@ -174,7 +174,10 @@ zstd                      1.3.7                h0b5b093_0
 
 ```
 
-If for some reason the environment doesnt work with the provided .yml file, this is the list of packages that you will need to get into your environment.
+If for some reason the environment doesnt work with the provided .yml file, this is the list of packages that you will need to get into your environment. The trackml package is installed from github.
+```
+pip install --user git+https://github.com/LAL/trackml-library
+```
 
 <br>
 
@@ -184,8 +187,8 @@ This step is straight forward, but can be time consuming. This step uses the hep
 ```
 # Input/output configuration
 input_dir: /data/gnn_code/trackml-particle-identification/train_all
-output_dir: /data/gnn_code/heptrkx-gnn-tracking/output2
-n_files: 9000
+output_dir: /data/gnn_code/heptrkx-gnn-tracking/output
+n_files: 8850
 
 # Graph building configuration
 selection:
@@ -195,38 +198,70 @@ selection:
     n_phi_sections: 4
     n_eta_sections: 2
     eta_range: [-5, 5]
+    dr_max: 65
+    volume_layer_ids: [[8,2], [8,4], [8,6], [8,8]]                             #barrel
+    layer_pairs : [[0, 1], [1, 2], [2, 3]]                                     #barrel
 ```
 
 Here you can change the input and output folders, as well as tweak some of the parameters for how the graphs are created. The output will have multiple .npz files per event, the number of files is determined by the number of sections that eta/phi get divided into, so in the above example you would get 8 files per event each covering different regions of the detector. Setting both to 1 will make a graph for the entire detector and takes a very long time to preprocess. The other parameters are cuts that can be used if desired. I am still learning all the code at the time of writing this, so its possible there are more advanced things that can be done in this preprocessing step that I am not currently aware of.
+
+I have added a new cut, which is the dr_max cut which only affects edges between the barrel and endcaps. I have also added the volume and layer mapping to the config file so its easier to include additional layers (like the endcaps).
 
 Once you have a configuration file created, you can preprocess the data as follows
 ```
 cd /data/gnn_code/heptrkx-gnn-tracking
 conda activate hgcal-env
-python prepare.py configs/my_prep_med.yaml
+python prepare.py configs/my_prep_med.yaml --n-workers=24
 ```
 
-Sit back, depending on the configuration this could take a very long time.
+Sit back, depending on the configuration this could take a while.
 
 <br>
 
 ## Training the GNN
 
-Details missing, coming soon
+In order for the training to work, the output files from the preprocessing step need to be located in a folder named **raw**. The training will treat each file in the folder as a seperate event, so if you only want to train on a subsector of the detector, only copy the files for that subsector into the **raw** folder. Getting the code to find this folder is kinda tricky, as its done in 2 steps. First there is a parameter in the script labeled **d**, this must be the name of the folder above the **raw folder**. Second, inside the file **/data/gnn_code/hgcal_ldrd/env.sh** there is a parameter named *GNN_TRAINING_DATA_ROOT* that must be pointed to the folder that is 2 above the **raw** folder. Here are the contents of **/data/gnn_code/hgcal_ldrd/env.sh**.
+```
+#!/bin/bash
+
+export GNN_TRAINING_DATA_ROOT=/data
+#export GNN_TRAINING_DATA_ROOT=/data/gnn_code
+
+export PYTHONPATH=`pwd`/src:$PYTHONPATH
+```
+An example folder hierarchy would look something like This
+```
+/data                                #GNN_TRAINING_DATA_ROOT points 2 above raw
+  /test_track                        #This folder is passed into the script as argument d
+    /raw
+      Place preprocessed files here
+    /processed
+      output files from training will get generated
+```
+To execute the training use the following commands.
 
 ```
 cd /data/gnn_code/hgcal_ldrd
+conda activate hgcal-env
 source env.sh
 python scripts/heptrx_nnconv.py -c -m=EdgeNetWithCategories -l=nll_loss -d=test_track --forcecats --cats=2 --hidden_dim=64 --lr 1e-4 -o AdamW >& EdgeNetWithCategories_test.log &
 tail -f EdgeNetWithCategories_test.log
 ```
 
+I dont understand exactly what all these parameters do as of yet, but there are a few things in the training that I do know how to alter. I'll go over those now and add more details as I learn them.
+
+
 
 <br>
 
 ## Plotting Results
-Details missing, coming soon
+The following notebooks are used for post processing and creating pretty plots. At the command line run the following
 ```
 jupyter notebook
 ```
-**/data/gnn_code/hgcal_ldrd/notebooks/graph_generation/draw_graphs.ipynb**
+
+If you want to plot the preprocessed graph before doing any training just to verify it was constructed correctly, the notebook **/data/gnn_code/hgcal_ldrd/notebooks/graph_generation/graph_preprocess.ipynb** can do that. just make sure to point it at your generated .npz file.
+
+An older notebook for making plots after training is found at **/data/gnn_code/hgcal_ldrd/notebooks/graph_generation/draw_graphs.ipynb** which you will need to point at both the trained model and whichever event you want to inference.
+
+Lastly, the following notebook creates a few plots and will do some post-processing to generate the track efficiency and fake rates, its located here **/data/gnn_code/hgcal_ldrd/notebooks/graph_generation/track_efficiency.ipynb**.

@@ -9,11 +9,10 @@ import os
 import argparse
 import logging
 import multiprocessing as mp
-import glob
-import itertools
 from functools import partial
 
 # Externals
+import copy
 import yaml
 import numpy as np
 import pandas as pd
@@ -21,26 +20,13 @@ import trackml.dataset
 
 # Locals
 from datasets.graph import Graph, save_graphs
-import mlflow
-
 
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser('prepare.py')
     add_arg = parser.add_argument
-    add_arg('--input-dir', required=True, dest='input_dir', action='store')
-    add_arg('--output-dir', required=True, dest='output_dir', action='store')
-    add_arg('--num-files', type=int, required=True, dest='num_files', action='store')
-
-    add_arg('--pt-min', type=float, dest='pt_min', action='store')
-    add_arg('--phi-slope_max', type=float, dest='phi_slope', action='store')
-    add_arg('--z0-max', type=float, dest='z0_max', action='store')
-    add_arg('--n-phi-sections', type=int, dest='n_phi_sections', action='store')
-    add_arg('--n-eta-sections', type=int, dest='n_eta_sections', action='store')
-    add_arg('--eta-range', dest='eta_range', action='store')
-
     add_arg('config', nargs='?', default='configs/prepare_trackml.yaml')
-    add_arg('--n-workers', dest='n_workers', type=int, default=1)
+    add_arg('--n-workers', type=int, default=1)
     add_arg('--task', type=int, default=0)
     add_arg('--n-tasks', type=int, default=1)
     add_arg('-v', '--verbose', action='store_true')
@@ -59,7 +45,7 @@ def calc_eta(r, z):
     theta = np.arctan2(r, z)
     return -1. * np.log(np.tan(theta / 2.))
 
-def select_segments(hits1, hits2, phi_slope_max, z0_max):
+def select_segments(hits1, hits2, phi_slope_max, z0_max, dr_max):
     """
     Construct a list of selected segments from the pairings
     between hits1 and hits2, filtered with the specified
@@ -79,11 +65,11 @@ def select_segments(hits1, hits2, phi_slope_max, z0_max):
     phi_slope = dphi / dr
     z0 = hit_pairs.z_1 - hit_pairs.r_1 * dz / dr
     # Filter segments according to criteria
-    good_seg_mask = (phi_slope.abs() < phi_slope_max) & (z0.abs() < z0_max)
+    good_seg_mask = (phi_slope.abs() < phi_slope_max) & (z0.abs() < z0_max) & (dr.abs() < dr_max)
     return hit_pairs[['index_1', 'index_2']][good_seg_mask]
 
 def construct_graph(hits, layer_pairs,
-                    phi_slope_max, z0_max,
+                    phi_slope_max, z0_max, dr_max,
                     feature_names, feature_scale):
     """Construct one graph (e.g. from one event)"""
 
@@ -101,7 +87,7 @@ def construct_graph(hits, layer_pairs,
             logging.info('skipping empty layer: %s' % e)
             continue
         # Construct the segments
-        segments.append(select_segments(hits1, hits2, phi_slope_max, z0_max))
+        segments.append(select_segments(hits1, hits2, phi_slope_max, z0_max, dr_max))
     # Combine segments from all layer pairs
     segments = pd.concat(segments)
 
@@ -129,15 +115,30 @@ def construct_graph(hits, layer_pairs,
     pid1 = hits.particle_id.loc[segments.index_1].values
     pid2 = hits.particle_id.loc[segments.index_2].values
     y[:] = (pid1 == pid2)
+
+    # Cylindrical Inversion
+    # Inv_Radius = 1
+    # X[:,0] = Inv_Radius*Inv_Radius/X[:,0]
+
+    # Spherical Inversion
+    # Inv_Radius = 1
+    # Rs = np.sqrt(X[:,0]*X[:,0] + X[:,2]*X[:,2])
+    # theta = np.arctan2(X[:,0],X[:,2])
+    # Rs = Inv_Radius*Inv_Radius/Rs
+    # X[:,0] = Rs[:]*np.sin(theta[:])
+    # X[:,2] = Rs[:]*np.cos(theta[:])
+
     # Return a tuple of the results
     return Graph(X, Ri, Ro, y)
 
-def select_hits(hits, truth, particles, pt_min=0):
-    # Barrel volume and layer ids
-    vlids = [(8,2), (8,4), (8,6), (8,8),
-             (13,2), (13,4), (13,6), (13,8),
-             (17,2), (17,4)]
+def select_hits(volume_layer_ids, hits, truth, particles, pt_min=0):
+    #volume and layer ids
+    #vlids = [(8,2), (8,4), (8,6), (8,8),
+    #         (13,2), (13,4), (13,6), (13,8),
+    #         (17,2), (17,4)]
+    vlids = [tuple(i) for i in volume_layer_ids]
     n_det_layers = len(vlids)
+
     # Select barrel layers and assign convenient layer number [0-9]
     vlid_groups = hits.groupby(['volume_id', 'layer_id'])
     hits = pd.concat([vlid_groups.get_group(vlids[i]).assign(layer=i)
@@ -181,8 +182,25 @@ def split_detector_sections(hits, phi_edges, eta_edges):
             hits_sections.append(sec_hits.assign(eta_section=j))
     return hits_sections
 
+def augment_graphs(graphs):
+    n_augments = 2
+    augmented = [0]*n_augments*len(graphs)
+
+    for i in range(len(graphs)):
+        augmented[n_augments*i] = graphs[i]
+
+        #Reflect across Phi
+        augmented[n_augments*i+1] = copy.deepcopy(graphs[i])
+        augmented[n_augments*i+1].X[:,1] = -augmented[n_augments*i+1].X[:,1]
+
+        #Reflect across Z
+        # augmented[n_augments*i+2] = copy.deepcopy(graphs[i])
+        # augmented[n_augments*i+2].X[:,2] = -augmented[n_augments*i+2].X[:,2]
+
+    return augmented
+
 def process_event(prefix, output_dir, pt_min, n_eta_sections, n_phi_sections,
-                  eta_range, phi_range, phi_slope_max, z0_max, mlflow=None, mlflow_run_id=None):
+                  eta_range, phi_range, phi_slope_max, z0_max, dr_max, volume_layer_ids, layer_pairs):
     # Load the data
     evtid = int(prefix[-9:])
     logging.info('Event %i, loading data' % evtid)
@@ -191,7 +209,7 @@ def process_event(prefix, output_dir, pt_min, n_eta_sections, n_phi_sections,
 
     # Apply hit selection
     logging.info('Event %i, selecting hits' % evtid)
-    hits = select_hits(hits, truth, particles, pt_min=pt_min).assign(evtid=evtid)
+    hits = select_hits(volume_layer_ids, hits, truth, particles, pt_min=pt_min).assign(evtid=evtid)
 
     # Divide detector into sections
     #phi_range = (-np.pi, np.pi)
@@ -204,28 +222,25 @@ def process_event(prefix, output_dir, pt_min, n_eta_sections, n_phi_sections,
     feature_scale = np.array([1000., np.pi / n_phi_sections, 1000.])
 
     # Define adjacent layers
-    n_det_layers = 10
-    l = np.arange(n_det_layers)
-    layer_pairs = np.stack([l[:-1], l[1:]], axis=1)
+    #n_det_layers = 10
+    #l = np.arange(n_det_layers)
+    #layer_pairs = np.stack([l[:-1], l[1:]], axis=1)
 
     # Construct the graph
     logging.info('Event %i, constructing graphs' % evtid)
     graphs = [construct_graph(section_hits, layer_pairs=layer_pairs,
-                              phi_slope_max=phi_slope_max, z0_max=z0_max,
+                              phi_slope_max=phi_slope_max, z0_max=z0_max, dr_max=dr_max,
                               feature_names=feature_names,
                               feature_scale=feature_scale)
               for section_hits in hits_sections]
+
+    graphs = augment_graphs(graphs)
 
     # Write these graphs to the output directory
     try:
         base_prefix = os.path.basename(prefix)
         filenames = [os.path.join(output_dir, '%s_g%03i' % (base_prefix, i))
                      for i in range(len(graphs))]
-
-        # Expand the generated graphfiles and add them as artifacts from this run
-        for f in list(itertools.chain.from_iterable([glob.glob(f+"*") for f in filenames])):
-            mlflow.log_artifact(mlflow_run_id, f)
-
     except Exception as e:
         logging.info(e)
     logging.info('Event %i, writing graphs', evtid)
@@ -245,44 +260,37 @@ def main():
     if args.show_config:
         logging.info('Command line config: %s' % args)
 
-    with mlflow.start_run() as run:
-        eta_range = [int(v) for v in args.eta_range.split(',')]
-        mlflow.log_param("eta_range", eta_range)
-        print("eta range ", eta_range)
-        # Construct layer pairs from adjacent layer numbers
-        layers = np.arange(10)
-        layer_pairs = np.stack([layers[:-1], layers[1:]], axis=1)
+    # Load configuration
+    with open(args.config) as f:
+        config = yaml.load(f)
+    if args.task == 0:
+        logging.info('Configuration: %s' % config)
 
-        # Find the input files
-        input_dir = args.input_dir
-        all_files = os.listdir(input_dir)
-        suffix = '-hits.csv'
-        file_prefixes = sorted(os.path.join(input_dir, f.replace(suffix, ''))
-                               for f in all_files if f.endswith(suffix))
-        file_prefixes = file_prefixes[:args.num_files]
+    # Construct layer pairs from adjacent layer numbers
+    #layers = np.arange(10)
+    #layer_pairs = np.stack([layers[:-1], layers[1:]], axis=1)
 
-        # Split the input files by number of tasks and select my chunk only
-        file_prefixes = np.array_split(file_prefixes, args.n_tasks)[args.task]
+    # Find the input files
+    input_dir = config['input_dir']
+    all_files = os.listdir(input_dir)
+    suffix = '-hits.csv'
+    file_prefixes = sorted(os.path.join(input_dir, f.replace(suffix, ''))
+                           for f in all_files if f.endswith(suffix))
+    file_prefixes = file_prefixes[:config['n_files']]
 
-        # Prepare output
-        output_dir = os.path.expandvars(args.output_dir)
-        os.makedirs(output_dir, exist_ok=True)
-        logging.info('Writing outputs to ' + output_dir)
-        mlflow_client = mlflow.tracking.MlflowClient()
+    # Split the input files by number of tasks and select my chunk only
+    file_prefixes = np.array_split(file_prefixes, args.n_tasks)[args.task]
 
-        # Process input files with a worker pool
-        with mp.Pool(processes=args.n_workers) as pool:
-            process_func = partial(process_event, output_dir=output_dir,
-                                   phi_range=(-np.pi, np.pi),
-                                   pt_min=args.pt_min,
-                                   phi_slope_max=args.phi_slope,
-                                   z0_max=args.z0_max,
-                                   n_phi_sections=args.n_phi_sections,
-                                   n_eta_sections=args.n_eta_sections,
-                                   eta_range=eta_range,
-                                   mlflow=mlflow_client,
-                                   mlflow_run_id=run.info.run_id)
-            pool.map(process_func, file_prefixes)
+    # Prepare output
+    output_dir = os.path.expandvars(config['output_dir'])
+    os.makedirs(output_dir, exist_ok=True)
+    logging.info('Writing outputs to ' + output_dir)
+
+    # Process input files with a worker pool
+    with mp.Pool(processes=args.n_workers) as pool:
+        process_func = partial(process_event, output_dir=output_dir,
+                               phi_range=(-np.pi, np.pi), **config['selection'])
+        pool.map(process_func, file_prefixes)
 
     # Drop to IPython interactive shell
     if args.interactive:
