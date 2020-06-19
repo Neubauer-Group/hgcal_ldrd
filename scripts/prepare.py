@@ -45,7 +45,7 @@ def calc_eta(r, z):
     theta = np.arctan2(r, z)
     return -1. * np.log(np.tan(theta / 2.))
 
-def select_segments(hits1, hits2, phi_slope_max, z0_max, dr_max):
+def select_segments(hits1, hits2, phi_slope_max, z0_max, layer1, layer2, remove_intersecting_edges):
     """
     Construct a list of selected segments from the pairings
     between hits1 and hits2, filtered with the specified
@@ -64,12 +64,24 @@ def select_segments(hits1, hits2, phi_slope_max, z0_max, dr_max):
     dr = hit_pairs.r_2 - hit_pairs.r_1
     phi_slope = dphi / dr
     z0 = hit_pairs.z_1 - hit_pairs.r_1 * dz / dr
+
+    # Check if there is a layer between the hits that intersects the edge
+    intersected_layer = dr.abs() < -1
+    if remove_intersecting_edges:
+        if layer1 == 0 and (layer2 == 4 or layer2 == 17): #lowest barrel layer to inner endcap layer
+            z_coord = 71.56298065185547 * dz / dr + z0
+            intersected_layer = np.logical_and(z_coord > -490.975, z_coord < 490.975)
+        if layer1 == 1 and (layer2 == 4 or layer2 == 17): #second barrel layer to inner endcap layer
+            z_coord = 115.37811279296875 * dz / dr + z0
+            intersected_layer = np.logical_and(z_coord > -490.975, z_coord < 490.975)
+
     # Filter segments according to criteria
-    good_seg_mask = (phi_slope.abs() < phi_slope_max) & (z0.abs() < z0_max) & (dr.abs() < dr_max)
+    good_seg_mask = (phi_slope.abs() < phi_slope_max) & (z0.abs() < z0_max) & (intersected_layer == False)
     return hit_pairs[['index_1', 'index_2']][good_seg_mask]
 
 def construct_graph(hits, layer_pairs,
-                    phi_slope_max, z0_max, dr_max,
+                    remove_intersecting_edges,
+                    phi_slope_max, z0_max,
                     feature_names, feature_scale):
     """Construct one graph (e.g. from one event)"""
 
@@ -87,7 +99,7 @@ def construct_graph(hits, layer_pairs,
             logging.info('skipping empty layer: %s' % e)
             continue
         # Construct the segments
-        segments.append(select_segments(hits1, hits2, phi_slope_max, z0_max, dr_max))
+        segments.append(select_segments(hits1, hits2, phi_slope_max, z0_max, layer1, layer2, remove_intersecting_edges))
     # Combine segments from all layer pairs
     segments = pd.concat(segments)
 
@@ -200,7 +212,9 @@ def augment_graphs(graphs):
     return augmented
 
 def process_event(prefix, output_dir, pt_min, n_eta_sections, n_phi_sections,
-                  eta_range, phi_range, phi_slope_max, z0_max, dr_max, volume_layer_ids, layer_pairs):
+                  eta_range, phi_range, phi_slope_max, z0_max,
+                  remove_intersecting_edges, construct_augmented_graphs,
+                  volume_layer_ids, layer_pairs):
     # Load the data
     evtid = int(prefix[-9:])
     logging.info('Event %i, loading data' % evtid)
@@ -229,12 +243,15 @@ def process_event(prefix, output_dir, pt_min, n_eta_sections, n_phi_sections,
     # Construct the graph
     logging.info('Event %i, constructing graphs' % evtid)
     graphs = [construct_graph(section_hits, layer_pairs=layer_pairs,
-                              phi_slope_max=phi_slope_max, z0_max=z0_max, dr_max=dr_max,
+                              remove_intersecting_edges=remove_intersecting_edges,
+                              phi_slope_max=phi_slope_max, z0_max=z0_max,
                               feature_names=feature_names,
                               feature_scale=feature_scale)
               for section_hits in hits_sections]
 
-    graphs = augment_graphs(graphs)
+    # Construct the charge conjugate paired graph
+    if construct_augmented_graphs:
+        graphs = augment_graphs(graphs)
 
     # Write these graphs to the output directory
     try:
