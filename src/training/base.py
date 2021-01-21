@@ -18,16 +18,13 @@ class base(object):
     logging of summaries, and checkpoints.
     """
 
-    def __init__(self, output_dir=None, device='cpu', distributed=False,
-                 mlflow_client=None, mlflow_run_id=None):
+    def __init__(self, output_dir=None, device='cpu', distributed=False):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.output_dir = (os.path.expandvars(output_dir)
                            if output_dir is not None else None)
         self.device = device
         self.distributed = distributed
         self.summaries = {}
-        self.mlflow=mlflow_client
-        self.run_id = mlflow_run_id
 
     def print_model_summary(self):
         """Override as needed"""
@@ -40,13 +37,13 @@ class base(object):
     def get_model_fname(self, model):
         import hashlib
         model_name = type(model).__name__
-        model_params = sum(p.numel() for p in model.parameters())        
+        model_params = sum(p.numel() for p in model.parameters())
         model_cfghash = hashlib.blake2b(repr(model).encode()).hexdigest()[:10]
         model_user = os.environ['USER']
         model_fname = '%s_%d_%s_%s'%(model_name, model_params,
                                  model_cfghash, model_user)
         return model_fname
-        
+
     def save_summary(self, summaries):
         """Save summary information"""
         for (key, val) in summaries.items():
@@ -70,10 +67,8 @@ class base(object):
         else:
             checkpoint_file = 'model_checkpoint_%s_%03i.pth.tar' % ( fname, checkpoint_id )
         os.makedirs(checkpoint_dir, exist_ok=True)
-
-        save_path = os.path.join(checkpoint_dir, checkpoint_file)
-        torch.save(dict(model=self.model.state_dict()),  save_path)
-        self.mlflow.log_artifact(self.run_id, save_path)
+        torch.save(dict(model=self.model.state_dict()),
+                   os.path.join(checkpoint_dir, checkpoint_file))
 
     def build_model(self):
         """Virtual method to construct the model(s)"""
@@ -94,20 +89,21 @@ class base(object):
         best_valid_loss = 99999
         for i in range(n_epochs):
             self.logger.info('Epoch %i' % i)
-            summary = dict(epoch=i)            
+            summary = dict(epoch=i)
             # Train on this epoch
-            sum_train = self.train_epoch(train_data_loader)            
+            sum_train = self.train_epoch(train_data_loader)
+            l_rate = sum_train['lr']
             summary.update(sum_train)
             # Evaluate on this epoch
             sum_valid = None
             if valid_data_loader is not None:
-                sum_valid = self.evaluate(valid_data_loader, epoch=i)
+                sum_valid = self.evaluate(valid_data_loader)
                 summary.update(sum_valid)
-                
+
                 if sum_valid['valid_loss'] < best_valid_loss:
                     best_valid_loss = sum_valid['valid_loss']
                     self.logger.debug('Checkpointing new best model with loss: %.5f', best_valid_loss)
-                    self.write_checkpoint(checkpoint_id=i,best=True)                
+                    self.write_checkpoint(checkpoint_id=i,best=True)
 
             # Save summary, checkpoint
             self.save_summary(summary)

@@ -114,7 +114,7 @@ class GNNTrainer(base):
         return summary
 
     @torch.no_grad()
-    def evaluate(self, data_loader, epoch=0):
+    def evaluate(self, data_loader):
         """"Evaluate the model"""
         self.model.zero_grad()
         torch.cuda.empty_cache()
@@ -175,8 +175,6 @@ class GNNTrainer(base):
                           np.array_str((confusion_num/confusion_denm).cpu().numpy()))
         self.logger.debug('loss %.5f cat true counts %s',sum_loss / (i + 1), (denm).cpu().numpy())
         self.logger.debug('loss %.5f cat wgt counts %s',sum_loss / (i + 1), (self._category_weights*denm).cpu().numpy())
-
-        self.mlflow.log_metric(self.run_id, "loss", sum_loss / (i + 1), step=epoch)
         if self.lr_scheduler is not None:
             self.lr_scheduler.step(sum_loss / (i + 1))
         summary['valid_time'] = time.time() - start_time

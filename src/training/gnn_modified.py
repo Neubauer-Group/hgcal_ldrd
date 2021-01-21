@@ -65,7 +65,7 @@ class GNNTrainer(base):
         t = tqdm.tqdm(enumerate(data_loader),total=int(math.ceil(total/batch_size)))
         cat_weights = self._category_weights
 
-        acc_rate = 10.
+        acc_rate = 1.
         acc_norm = 1./acc_rate
         acc_loss = 0.
 
